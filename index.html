@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HR Automation system by AbdAllah Hamdy</title>
+<meta name="description" content="Five n8n workflows that take a CV from application to decision, answer policy questions and report their own failures.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --paper:#F4F6F5;--card:#fff;--ink:#12202B;--muted:#55646E;--line:#D5DCDA;
+  --teal:#0B7A75;--teal-d:#085E5A;--mint:#DDEFEA;--coral:#C93E22;--coral-bg:#FBE6E1;
+  --d0:#0A141B;--d1:#101E27;--d2:#1A2C38;--dl:#26394A;--dt:#D9E6E2;--dm:#8FA3A9;--acc:#4FD6C8;--warn:#FF8A6B;--amber:#F2C14E;
+  --font-d:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --font-b:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --font-m:'IBM Plex Mono',ui-monospace,Consolas,monospace
+}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;color-scheme:light}
+body{font-family:var(--font-b);background:var(--paper);color:var(--ink);line-height:1.65;font-size:16px;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-d)}
+:focus-visible{outline:3px solid var(--teal);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+
+header{position:sticky;top:0;z-index:50;background:rgba(244,246,245,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:24px;height:56px}
+.logo{font-family:var(--font-d);font-weight:700;font-size:1.05rem;color:var(--ink);text-decoration:none;white-space:nowrap}
+.menu{display:flex;gap:22px;list-style:none;overflow-x:auto;scrollbar-width:none}
+.menu::-webkit-scrollbar{display:none}
+.menu a{font-size:.9rem;font-weight:500;color:var(--muted);text-decoration:none;white-space:nowrap;padding:4px 0;border-bottom:2px solid transparent}
+.menu a:hover{color:var(--ink);border-color:var(--teal)}
+
+.hero{display:grid;grid-template-columns:1fr 1.05fr;gap:56px;align-items:center;padding:72px 0 64px}
+h1{font-family:var(--font-d);font-weight:700;font-size:clamp(2.3rem,5vw,3.7rem);line-height:1.04;letter-spacing:-.025em;margin-bottom:20px}
+.lead{font-size:1.1rem;color:var(--muted);max-width:30em;margin-bottom:28px}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}
+.btn{display:inline-flex;align-items:center;padding:11px 22px;border-radius:8px;font:600 .95rem var(--font-b);text-decoration:none;border:1.5px solid var(--ink);transition:background .15s,color .15s,border-color .15s;cursor:pointer}
+.btn-solid{background:var(--ink);color:#fff}
+.btn-solid:hover{background:var(--teal-d);border-color:var(--teal-d)}
+.btn-line{background:transparent;color:var(--ink)}
+.btn-line:hover{background:var(--mint);border-color:var(--teal-d)}
+.btn.disabled{pointer-events:none;opacity:.45}
+.status{display:inline-flex;align-items:center;gap:9px;padding:6px 14px;border-radius:999px;font-size:.85rem;font-weight:500;background:#fff;border:1px solid var(--line);color:var(--muted)}
+.status i{width:9px;height:9px;border-radius:50%;background:#9AA7A3;flex-shrink:0}
+html[data-state=online] .status{color:var(--teal-d);border-color:#9fd3cb;background:var(--mint)}
+html[data-state=online] .status i{background:var(--teal);box-shadow:0 0 0 3px rgba(11,122,117,.2)}
+html[data-state=offline] .status{color:var(--coral);border-color:#efb9ad;background:var(--coral-bg)}
+html[data-state=offline] .status i{background:var(--coral)}
+
+.map{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 20px 14px}
+.map svg{display:block;width:100%;height:auto;overflow:visible}
+.map figcaption{font-size:.82rem;color:var(--muted);margin-top:10px}
+.node rect{fill:#fff;stroke:var(--ink);stroke-width:1.5;transition:fill .15s}
+.node a{cursor:pointer;text-decoration:none}
+.node a:hover rect{fill:var(--mint)}
+.node a:focus-visible{outline:none}
+.node a:focus-visible rect{stroke:var(--teal);stroke-width:3.5}
+.node .t{font:700 14.5px var(--font-d);fill:var(--ink)}
+.node .s{font:400 11.5px var(--font-b);fill:var(--muted)}
+.node.err rect{stroke:var(--coral)}
+.pd{fill:#9AA7A3}
+html[data-state=online] .pd{fill:var(--teal)}
+html[data-state=offline] .pd{fill:var(--coral)}
+.link{fill:none;stroke:var(--ink);stroke-width:1.5}
+.link.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .9s .2s ease-out forwards}
+.link.warn{stroke:var(--coral);stroke-dasharray:4 4}
+.cap{font:400 11px var(--font-b);fill:var(--muted)}
+.cap.warn{fill:var(--coral)}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* stages */
+.stage{display:grid;grid-template-columns:240px 1fr;gap:28px 48px;padding:56px 0;border-top:1px solid var(--line);scroll-margin-top:56px}
+.trigger{display:inline-block;font-size:.8rem;font-weight:500;color:var(--teal-d);background:var(--mint);border-radius:999px;padding:3px 12px;margin-bottom:14px}
+.trigger.warn{color:var(--coral);background:var(--coral-bg)}
+h2{font-family:var(--font-d);font-weight:700;font-size:1.7rem;line-height:1.15;letter-spacing:-.015em;margin-bottom:6px}
+.wf{font-size:.88rem;color:var(--muted)}
+.body p{max-width:40em}
+.body .btn{margin-top:20px}
+.note{grid-column:1/-1;font-size:.85rem;color:var(--muted);margin-top:-8px}
+
+/* demo: phone + log + sheet */
+.demo{grid-column:1/-1;display:grid;grid-template-columns:300px minmax(0,1fr) minmax(0,1.3fr);gap:16px;background:var(--d0);border-radius:22px;padding:20px}
+.panel{background:var(--d1);border:1px solid var(--dl);border-radius:18px;min-height:480px;display:flex;flex-direction:column;overflow:hidden;color:var(--dt)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--dl)}
+.panel-head strong{font:600 .95rem var(--font-d)}
+.pill{font:500 .72rem var(--font-b);padding:2px 10px;border-radius:999px;background:var(--d2);color:var(--dm)}
+.pill.running{color:var(--amber)}
+.pill.ok{color:var(--acc);background:rgba(79,214,200,.12)}
+.pill.bad{color:var(--warn);background:rgba(255,138,107,.12)}
+
+.phone{border:3px solid #E7EEEC;border-radius:30px;background:var(--d1);min-height:480px;display:flex;flex-direction:column;overflow:hidden;color:var(--dt)}
+.p-head{padding:16px 18px;background:linear-gradient(135deg,#0B7A75,#17A096);color:#fff}
+.p-head strong{display:block;font:700 1rem var(--font-d)}
+.p-head span{font-size:.78rem;opacity:.9}
+.p-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:9px;min-height:0}
+.bub{max-width:88%;padding:9px 13px;border-radius:14px;font-size:.88rem;line-height:1.5;word-break:break-word;animation:pop .25s ease-out}
+.bub.user{align-self:flex-end;background:var(--teal);color:#fff;border-bottom-right-radius:4px}
+.bub.bot{align-self:flex-start;background:var(--d2);border-bottom-left-radius:4px}
+.bub b{display:block;font-weight:600;margin-bottom:2px;color:var(--acc)}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}}
+.p-chips{display:flex;gap:7px;overflow-x:auto;padding:8px 12px;scrollbar-width:thin;border-top:1px solid var(--dl)}
+.chip{flex-shrink:0;border:1px solid var(--dl);background:transparent;color:var(--dt);border-radius:999px;padding:6px 13px;font:500 .78rem var(--font-b);cursor:pointer;transition:background .15s,border-color .15s}
+.chip:hover:not(:disabled){background:var(--d2);border-color:var(--acc)}
+.chip:disabled{opacity:.45;cursor:not-allowed}
+.p-bar{display:flex;gap:8px;padding:10px 12px 14px}
+.p-in{flex:1;min-width:0;border:1px solid var(--dl);background:var(--d0);color:var(--dt);border-radius:999px;padding:9px 14px;font:400 .85rem var(--font-b)}
+.p-in:disabled{opacity:.6}
+.p-in:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.p-send{border:0;background:var(--teal);color:#fff;border-radius:999px;padding:0 16px;font:600 .85rem var(--font-b);cursor:pointer}
+.p-send:disabled{opacity:.45;cursor:not-allowed}
+
+.l-list{list-style:none;padding:16px 18px;display:flex;flex-direction:column;gap:11px;font:400 .8rem var(--font-m);overflow-y:auto}
+.l-list li{display:flex;gap:10px;align-items:baseline;animation:pop .25s ease-out}
+.l-list li::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--acc);flex-shrink:0;transform:translateY(0)}
+.l-list li.warn::before{background:var(--warn)}
+.l-list em{font-style:normal;color:var(--acc)}
+.l-list li.warn em{color:var(--warn)}
+.l-list span{color:var(--dm)}
+.l-empty{color:var(--dm);font:400 .85rem var(--font-b);padding:18px}
+
+.s-tabs{display:flex;gap:6px;padding:12px 14px 0;overflow-x:auto;scrollbar-width:none}
+.s-tab{flex-shrink:0;border:0;background:var(--d2);color:var(--dt);border-radius:8px 8px 0 0;padding:7px 14px;font:500 .8rem var(--font-b);cursor:pointer}
+.s-tab[aria-selected=true]{background:#1D9C93;color:#fff}
+.s-wrap{flex:1;overflow:auto;background:var(--d2);margin:0 14px 14px;border-radius:0 8px 8px 8px}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{position:sticky;top:0;background:#223645;text-align:left;font-weight:600;padding:9px 12px;white-space:nowrap;color:var(--dm)}
+td{padding:9px 12px;border-top:1px solid var(--dl);white-space:nowrap}
+tr.hl td{animation:flash 1.6s ease-out}
+@keyframes flash{from{background:rgba(79,214,200,.28)}}
+td.ok{color:var(--acc)}td.bad{color:var(--warn)}td.mid{color:var(--amber)}td.dim{color:var(--dm)}
+.s-empty{padding:20px 14px;color:var(--dm);font-size:.85rem}
+.reset{border:1px solid var(--dl);background:transparent;color:var(--dm);border-radius:6px;padding:3px 10px;font:500 .72rem var(--font-b);cursor:pointer}
+.reset:hover{color:var(--dt);border-color:var(--dm)}
+
+.bub{white-space:pre-wrap}
+.sysn{align-self:center;font-size:.74rem;color:var(--dm);padding:2px 10px;text-align:center}
+.demo.has-staff{grid-template-columns:300px minmax(0,1fr) minmax(0,1fr)}
+.demo.has-staff .sheet{grid-column:1/-1;min-height:280px}
+.cards{padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.card{background:var(--d2);border:1px solid var(--dl);border-radius:12px;padding:12px 14px;animation:pop .25s ease-out}
+.card-h{display:block;font:600 .8rem var(--font-b);color:var(--acc);margin-bottom:4px}
+.card-t{font-size:.85rem;white-space:pre-wrap;line-height:1.5}
+.card-b{display:flex;gap:8px;margin-top:10px}
+.sbtn{flex:1;border:1px solid var(--dl);background:var(--d1);color:var(--dt);border-radius:8px;padding:7px 10px;font:600 .8rem var(--font-b);cursor:pointer}
+.sbtn:hover:not(:disabled){border-color:var(--acc);background:var(--d0)}
+.sbtn:disabled{opacity:.4;cursor:not-allowed}
+.card-s{margin-top:8px;font:500 .78rem var(--font-b);color:var(--acc)}
+.card-s:empty{display:none}
+.group{display:grid;grid-template-columns:1fr 1.05fr;gap:56px;align-items:center;padding:72px 0 56px;border-top:1px solid var(--line);scroll-margin-top:56px}
+.gh{font-size:clamp(1.9rem,4vw,2.6rem);line-height:1.1;margin-bottom:16px}
+.group .lead{margin-bottom:0}
+.soon{max-width:40em;padding:26px 28px;border:1.5px dashed var(--line);border-radius:16px}
+
+footer{border-top:1px solid var(--line);padding:36px 0 44px;background:var(--card)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px 32px;font-size:.9rem;color:var(--muted)}
+.foot p{max-width:34em}
+.foot nav{display:flex;gap:22px}
+
+@media(max-width:1020px){
+  .demo{grid-template-columns:1fr}
+  .phone{max-width:340px;width:100%;margin:0 auto}
+  .panel{min-height:300px}
+  .demo.has-staff{grid-template-columns:1fr}
+  .demo.has-staff .sheet{grid-column:auto}
+}
+@media(max-width:860px){
+  .hero{grid-template-columns:1fr;gap:40px;padding:48px 0 44px}
+  .stage{grid-template-columns:1fr;padding:44px 0}
+  .group{grid-template-columns:1fr;gap:36px;padding:48px 0 40px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;scroll-behavior:auto!important;transition:none!important}
+  .link.draw{stroke-dashoffset:0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="#top">AbdAllah Hamdy</a>
+    <ul class="menu">
+      <li><a href="#apply">Apply</a></li>
+      <li><a href="#screening">Screening</a></li>
+      <li><a href="#errors">Error handler</a></li>
+      <li><a href="#ask-hr">Ask HR</a></li>
+      <li><a href="#coach">Coach</a></li>
+      <li><a href="#pharmacy">Pharmacy</a></li>
+    </ul>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+
+  <section class="hero">
+    <div>
+      <h1>Hiring and HR support that runs itself</h1>
+      <p class="lead">Five n8n workflows take a CV from application to decision, answer policy questions, and report their own failures. Use the real forms, or run each workflow in the preview to see what happens inside.</p>
+      <div class="actions">
+        <a class="btn btn-solid" data-form="apply" target="_blank" rel="noopener">Apply with your CV</a>
+        <a class="btn btn-line" data-form="coach" target="_blank" rel="noopener">Get a coaching report</a>
+      </div>
+      <p class="status" role="status"><i></i><span id="status-text">Checking status…</span></p>
+    </div>
+
+    <figure class="map">
+      <svg viewBox="0 0 480 332" role="img" aria-labelledby="map-title">
+        <title id="map-title">How the five workflows connect. Apply feeds AI screening, the error handler watches both, and Ask HR and the coach run on their own.</title>
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#12202B"/></marker>
+        </defs>
+        <path class="link draw" pathLength="1" d="M210 41H268" marker-end="url(#arr)"/>
+        <path class="link warn" d="M105 72V140"/>
+        <path class="link warn" d="M375 72V140"/>
+        <text class="cap warn" x="240" y="112" text-anchor="middle">reports failures</text>
+        <text class="cap" x="0" y="238">Also available on their own</text>
+        <g class="node"><a href="#apply"><rect x="0" y="10" width="210" height="62" rx="10"/><text class="t" x="16" y="38">Apply for a job</text><text class="s" x="16" y="56">Form · CV intake</text><circle class="pd" cx="190" cy="26" r="4.5"/></a></g>
+        <g class="node"><a href="#screening"><rect x="270" y="10" width="210" height="62" rx="10"/><text class="t" x="286" y="38">AI screening</text><text class="s" x="286" y="56">Every hour</text><circle class="pd" cx="460" cy="26" r="4.5"/></a></g>
+        <g class="node err"><a href="#errors"><rect x="0" y="140" width="480" height="62" rx="10"/><text class="t" x="16" y="168">Error handler</text><text class="s" x="16" y="186">Logs failures · sends alerts · daily digest</text><circle class="pd" cx="460" cy="156" r="4.5"/></a></g>
+        <g class="node"><a href="#ask-hr"><rect x="0" y="252" width="210" height="62" rx="10"/><text class="t" x="16" y="280">Ask HR</text><text class="s" x="16" y="298">Chat · policy answers</text><circle class="pd" cx="190" cy="268" r="4.5"/></a></g>
+        <g class="node"><a href="#coach"><rect x="270" y="252" width="210" height="62" rx="10"/><text class="t" x="286" y="280">Application coach</text><text class="s" x="286" y="298">Form · CV vs job post</text><circle class="pd" cx="460" cy="268" r="4.5"/></a></g>
+      </svg>
+      <figcaption>Select a node to jump to that workflow.</figcaption>
+    </figure>
+  </section>
+
+  <section class="stage" id="apply">
+    <div>
+      <span class="trigger">Form trigger</span>
+      <h2>Apply for a job</h2>
+      <p class="wf">Recruitment 1 · Intake</p>
+    </div>
+    <div class="body">
+      <p>Candidates apply with a PDF CV. The workflow checks the file and the applicant before anything is stored, so bad files and repeat applications never reach the pipeline.</p>
+      <a class="btn btn-solid" data-form="apply" target="_blank" rel="noopener">Open the real application form</a>
+    </div>
+    <p class="note">Preview with sample data. The buttons on the phone run a simulation of the workflow.</p>
+    <div class="demo" id="demo-apply"></div>
+  </section>
+
+  <section class="stage" id="screening">
+    <div>
+      <span class="trigger">Runs every hour</span>
+      <h2>AI screening</h2>
+      <p class="wf">Recruitment 2</p>
+    </div>
+    <div class="body">
+      <p>This workflow runs in the background, so there is nothing to fill in. Every hour it reads new applications, scores each CV with AI, and emails the candidate the right reply.</p>
+    </div>
+    <p class="note">Preview with sample data. Pick a CV on the phone to see how one application is screened.</p>
+    <div class="demo" id="demo-screening"></div>
+  </section>
+
+  <section class="stage" id="errors">
+    <div>
+      <span class="trigger warn">Runs on error and on schedule</span>
+      <h2>Error handler</h2>
+      <p class="wf">Recruitment 3</p>
+    </div>
+    <div class="body">
+      <p>The safety net for the other workflows. When a run fails it is logged and the team is alerted, a daily digest summarises the errors, and a scheduled check confirms applications are still moving.</p>
+    </div>
+    <p class="note">Preview with sample data. Trigger each case on the phone to see what the team receives.</p>
+    <div class="demo" id="demo-errors"></div>
+  </section>
+
+  <section class="stage" id="ask-hr">
+    <div>
+      <span class="trigger">Chat trigger</span>
+      <h2>Ask HR</h2>
+      <p class="wf">RAG + GPT</p>
+    </div>
+    <div class="body">
+      <p>Ask a question about company policy. The assistant always searches the policy documents first, answers only from them, and names the source. It remembers the last 10 messages of the conversation. If the policies don't cover the question, it suggests contacting HR or IT.</p>
+    </div>
+    <p class="note" id="ask-note"></p>
+    <div class="demo" id="demo-ask"></div>
+  </section>
+
+  <section class="stage" id="coach">
+    <div>
+      <span class="trigger">Form trigger</span>
+      <h2>Application coach</h2>
+      <p class="wf">Job Application Coach</p>
+    </div>
+    <div class="body">
+      <p>Submit your CV and the job post you are aiming for. The workflow compares them, finds the gaps, and emails you a coaching report with changes to make.</p>
+      <a class="btn btn-solid" data-form="coach" target="_blank" rel="noopener">Open the real coaching form</a>
+    </div>
+    <p class="note">Preview with sample data. The buttons on the phone run a simulation of the workflow.</p>
+    <div class="demo" id="demo-coach"></div>
+  </section>
+
+  <section class="group" id="pharmacy">
+    <div>
+      <span class="trigger">Second project</span>
+      <h2 class="gh">Pharmacy requests on WhatsApp</h2>
+      <p class="lead">Dawaa Pharmacy automation. Customers send a medicine name or a photo of a prescription on WhatsApp. The system reads it, checks the catalog, reserves the stock, and asks a pharmacist on Telegram whenever a human check is needed.</p>
+    </div>
+    <figure class="map">
+      <svg viewBox="0 0 480 214" role="img" aria-labelledby="map2-title">
+        <title id="map2-title">The pharmacy workflows. Reservations feed the expiry and stock checks, and the error handler watches both.</title>
+        <defs><marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#12202B"/></marker></defs>
+        <path class="link" d="M210 41H268" marker-end="url(#arr2)"/>
+        <path class="link warn" d="M105 72V140"/>
+        <path class="link warn" d="M375 72V140"/>
+        <text class="cap warn" x="240" y="112" text-anchor="middle">reports failures</text>
+        <g class="node"><a href="#requests"><rect x="0" y="10" width="210" height="62" rx="10"/><text class="t" x="16" y="38">Reservations</text><text class="s" x="16" y="56">WhatsApp · Telegram</text><circle class="pd" cx="190" cy="26" r="4.5"/></a></g>
+        <g class="node"><a href="#stock"><rect x="270" y="10" width="210" height="62" rx="10"/><text class="t" x="286" y="38">Expiry and stock</text><text class="s" x="286" y="56">Every 15 min · daily 22:00</text><circle class="pd" cx="460" cy="26" r="4.5"/></a></g>
+        <g class="node err"><a href="#pharmacy-errors"><rect x="0" y="140" width="480" height="62" rx="10"/><text class="t" x="16" y="168">Error handler</text><text class="s" x="16" y="186">Classifies errors · logs them · alerts the team</text><circle class="pd" cx="460" cy="156" r="4.5"/></a></g>
+      </svg>
+      <figcaption>Select a node to jump to that workflow.</figcaption>
+    </figure>
+  </section>
+
+  <section class="stage" id="requests">
+    <div>
+      <span class="trigger">WhatsApp and Telegram triggers</span>
+      <h2>Requests and reservations</h2>
+      <p class="wf">Dawaa 1 · Requests &amp; Reservations</p>
+    </div>
+    <div class="body">
+      <p>A customer sends a medicine name or a photo of a prescription. AI reads the request and the workflow matches it to the catalog. Medicines that are in stock are reserved straight away. Controlled or low-stock medicines go to a pharmacist on Telegram, who approves or rejects with one tap.</p>
+      <a class="btn btn-solid" id="wa-btn" target="_blank" rel="noopener" hidden>Message the pharmacy on WhatsApp</a>
+    </div>
+    <p class="note">Preview with sample data. WhatsApp and Telegram are simulated here. Send a request on the phone, then use the pharmacist's buttons.</p>
+    <div class="demo" id="demo-requests"></div>
+  </section>
+
+  <section class="stage" id="stock">
+    <div>
+      <span class="trigger">Runs every 15 minutes and daily</span>
+      <h2>Expiry and stock alerts</h2>
+      <p class="wf">Dawaa 2 · Maintenance</p>
+    </div>
+    <div class="body">
+      <p>Two schedules keep reservations and stock honest. Every 15 minutes, holds past their time are cancelled, the customer is told on WhatsApp, and the stock goes back to the catalog. Every day at 22:00, medicines at or below their reorder level are sent to the team on Telegram and to purchasing by email.</p>
+    </div>
+    <p class="note">Preview with sample data. These run on a timer in real life, so use the buttons on the phone to run them now.</p>
+    <div class="demo" id="demo-stock"></div>
+  </section>
+
+  <section class="stage" id="pharmacy-errors">
+    <div>
+      <span class="trigger warn">Runs on error</span>
+      <h2>Pharmacy error handler</h2>
+      <p class="wf">Dawaa 2 · Error handling</p>
+    </div>
+    <div class="body">
+      <p>When a pharmacy workflow fails, the error is classified (credentials, rate limit, network, Google Sheets, messaging or code), logged to an Errors sheet, and sent to the team on Telegram. Critical errors, such as credential or data problems, also trigger an email.</p>
+    </div>
+    <p class="note">Preview with sample data. Trigger an error on the phone to see how each type is handled.</p>
+    <div class="demo" id="demo-perrors"></div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <p>Built with n8n, Docker and ngrok by AbdAllah Hamdy. The workflows run on my own computer, so the site shows Offline whenever it is switched off.</p>
+    <nav>
+      <a id="repo-link" target="_blank" rel="noopener">GitHub repository</a>
+      <a id="wf-link" target="_blank" rel="noopener">Workflow files</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+const CONFIG = {
+  n8nBase: "https://enclosure-dad-suitcase.ngrok-free.dev",
+  chat: "",
+  applyForm: "/form/1faf866d-1678-4478-9f6a-bd5421a23549",
+  coachForm: "/form/2c6dbeea-2bd5-42c5-8a0e-cc1a0c7e12bc",
+  repo: "https://github.com/userx-101/HRAutomation",
+  whatsapp: ""   // optional, digits only with country code, e.g. "201001234567". Empty hides the button
+};
+
+const HEADERS = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' };
+const sessionId = crypto.randomUUID();
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function h(tag, cls, text, kids) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  (kids || []).forEach(k => e.append(k));
+  return e;
+}
+
+/* ---------- links and status ---------- */
+document.querySelectorAll('[data-form]').forEach(a => {
+  a.href = CONFIG.n8nBase + (a.dataset.form === 'apply' ? CONFIG.applyForm : CONFIG.coachForm);
+});
+$('#repo-link').href = CONFIG.repo;
+$('#wf-link').href = CONFIG.repo + '/tree/main/workflows';
+if (CONFIG.whatsapp) { const wa = $('#wa-btn'); wa.href = 'https://wa.me/' + CONFIG.whatsapp; wa.hidden = false; }
+
+const statusText = $('#status-text');
+function setState(state) {
+  document.documentElement.dataset.state = state;
+  const online = state === 'online';
+  statusText.textContent = online ? 'Online' : 'Offline. Please try again later.';
+  document.querySelectorAll('[data-form]').forEach(a => {
+    a.classList.toggle('disabled', !online);
+    a.setAttribute('aria-disabled', String(!online));
+  });
+}
+(async function checkStatus() {
+  try {
+    if (CONFIG.chat) {
+      const r = await fetch(CONFIG.n8nBase + CONFIG.chat, { method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ action: 'loadPreviousSession', sessionId }) });
+      if (!r.ok) throw new Error('not ok');
+    } else {
+      await fetch(CONFIG.n8nBase + CONFIG.applyForm, { mode: 'no-cors', headers: { 'ngrok-skip-browser-warning': '1' } });
+    }
+    setState('online');
+  } catch (_) { setState('offline'); }
+})();
+
+/* ---------- preview scenarios (sample data) ---------- */
+const pharmFollow = (id, name, qty, sku) => [
+  { label: 'Approve', follow: { sys: 'Pharmacist presses Approve', status: 'approved',
+    log: [['Telegram Trigger', 'button pressed'], ['Parse Decision', 'approve · ' + id], ['Find Pending Lines', 'status = pending'], ['Apply Decision', 'lines approved'], ['Update Lines', 'status approved'], ['Take Stock (Approved)', 'Catalog updated'], ['Tell Customer: Approved', 'WhatsApp']],
+    replies: [['Request approved', '✅ تمت الموافقة على طلبك رقم ' + id + ':\n• ' + name + ' × ' + qty + '\nيمكنك الاستلام من الصيدلية.\n(Approved. You can pick it up from the pharmacy.)']],
+    ops: [{ tab: 0, dec: [sku, 2, qty] }, { tab: 1, setBy: [id, 3, 'approved'] }] } },
+  { label: 'Reject', follow: { sys: 'Pharmacist presses Reject', status: 'rejected', fail: true, end: 'rejected',
+    log: [['Telegram Trigger', 'button pressed'], ['Parse Decision', 'reject · ' + id], ['Find Pending Lines', 'status = pending'], ['Apply Decision', 'lines rejected'], ['Update Lines', 'status rejected'], ['Approved?', 'no', true], ['Tell Customer: Rejected', 'WhatsApp']],
+    replies: [['Request update', 'عذراً 🙏 لا يمكننا تجهيز طلبك رقم ' + id + ' حالياً. تواصل مع الصيدلية للمزيد من التفاصيل.\n(Sorry, we can’t fulfil your request right now. Please contact the pharmacy.)']],
+    ops: [{ tab: 1, setBy: [id, 3, 'rejected'] }] } }
+];
+const pharmCard = (id, line, name, qty, sku) => ({ head: 'Dawaa Bot', text: '🧾 New request ' + id + '\nCustomer: Sample Customer\n' + line, buttons: pharmFollow(id, name, qty, sku) });
+const pharmWait = id => [['Dawaa pharmacist is checking', 'شكراً لك 🙏 طلبك رقم ' + id + ' وصل للصيدلي وجاري التأكد منه. سنرد عليك خلال دقائق.\nThanks! Your request is being checked by our pharmacist. We’ll reply shortly.']];
+const errChip = (label, node, type, msg, critical) => ({
+  label, sys: 'A pharmacy workflow fails…', fail: true, end: critical ? 'critical' : 'logged',
+  log: [['Error Trigger', 'Dawaa 1 failed', true], ['Classify Error', type + ' · ' + (critical ? 'critical' : 'not critical')], ['Alert Team', 'row added to Errors'], ['Alert Team1', 'Telegram alert'], ['If', critical ? 'critical · email the team' : 'not critical · no email']].concat(critical ? [['Send a message', 'critical email sent']] : []),
+  replies: [['Dawaa workflow error', 'Workflow: Dawaa 1 - Requests & Reservations\nNode: ' + node + '\nType: ' + type + '\nMessage: ' + msg]].concat(critical ? [['Email to the team', 'Dawaa CRITICAL error: ' + type + ' in ' + node]] : []),
+  ops: (critical ? [{ tab: 1, add: ['Dawaa CRITICAL error: ' + type + ' in ' + node] }] : []).concat([{ tab: 0, add: ['Dawaa 1', node, type, critical ? 'critical' : 'non-critical'] }])
+});
+
+const S = {
+  apply: {
+    phone: ['Application form', 'What the candidate sees'],
+    intro: ['Choose a sample application to submit.'],
+    sheetTitle: 'Google Sheet · Applications',
+    tabs: [
+      { name: 'Applications', cols: ['Name', 'Position', 'Status', 'Score'], rows: [['Omar Hassan', 'Data Analyst', 'invited', '88'], ['Mona Adel', 'HR Assistant', 'declined', '41']] },
+      { name: 'CV folder', cols: ['File', 'Position'], rows: [['omar-hassan-cv.pdf', 'Data Analyst'], ['mona-adel-cv.pdf', 'HR Assistant']] }
+    ],
+    chips: [
+      { label: 'Submit a PDF CV', user: 'Sara Ali · Data Analyst · sara-ali-cv.pdf',
+        log: [['Form Trigger', 'application received'], ['Validate File', 'PDF ok'], ['Check Duplicate', 'new applicant'], ['Upload CV', 'Google Drive'], ['Append Row', 'Applications · status new'], ['Done Page', 'success shown']],
+        replies: ['Application received. We will email you once your CV has been reviewed.'],
+        ops: [{ tab: 1, add: ['sara-ali-cv.pdf', 'Data Analyst'] }, { tab: 0, add: ['Sara Ali', 'Data Analyst', 'new', '—'] }] },
+      { label: 'Upload a .png file', user: 'Sara Ali · Data Analyst · photo.png', fail: true, end: 'rejected',
+        log: [['Form Trigger', 'application received'], ['Validate File', 'not a PDF', true]],
+        replies: ['Please upload your CV as a PDF file.'] },
+      { label: 'Apply twice', user: 'Omar Hassan · Data Analyst · omar-hassan-cv.pdf', fail: true, end: 'rejected',
+        log: [['Form Trigger', 'application received'], ['Validate File', 'PDF ok'], ['Check Duplicate', 'already applied', true]],
+        replies: ['You already applied for this position.'] }
+    ]
+  },
+  screening: {
+    phone: ['Candidate inbox', 'Emails from the system'],
+    intro: ['Pick a CV to screen. Each one is a new row waiting in the sheet.'],
+    sheetTitle: 'Google Sheet · Applications',
+    tabs: [
+      { name: 'Applications', cols: ['Name', 'Position', 'Score', 'Status'], rows: [['Layla Samir', 'Data Analyst', '—', 'new'], ['Youssef Nabil', 'Data Analyst', '—', 'new'], ['Hana Mostafa', 'Data Analyst', '—', 'new']] },
+      { name: 'Sent emails', cols: ['To', 'Subject'], rows: [] }
+    ],
+    chips: [
+      { label: 'Screen a strong CV', user: 'Screening Layla Samir…',
+        log: [['Schedule Trigger', 'every hour'], ['Read New Rows', 'status = new'], ['AI Score', 'Layla Samir · 88'], ['Route', 'invite'], ['Send Gmail', 'invitation'], ['Update Row', 'score and status saved']],
+        replies: [['Invitation to interview', 'Thank you for applying for Data Analyst. We would like to invite you to the next step.']],
+        ops: [{ tab: 1, add: ['layla@example.com', 'Invitation to interview'] }, { tab: 0, set: [0, 2, '88'] }, { tab: 0, set: [0, 3, 'invited'] }] },
+      { label: 'Screen a borderline CV', user: 'Screening Youssef Nabil…',
+        log: [['Schedule Trigger', 'every hour'], ['Read New Rows', 'status = new'], ['AI Score', 'Youssef Nabil · 64'], ['Route', 'borderline'], ['Send Gmail', 'follow-up'], ['Update Row', 'score and status saved']],
+        replies: [['We need a little more', 'Thank you for applying. Your profile is close, and we would like a few more details.']],
+        ops: [{ tab: 1, add: ['youssef@example.com', 'We need a little more'] }, { tab: 0, set: [1, 2, '64'] }, { tab: 0, set: [1, 3, 'borderline'] }] },
+      { label: 'Screen a weak CV', user: 'Screening Hana Mostafa…',
+        log: [['Schedule Trigger', 'every hour'], ['Read New Rows', 'status = new'], ['AI Score', 'Hana Mostafa · 31'], ['Route', 'decline'], ['Send Gmail', 'decline'], ['Update Row', 'score and status saved']],
+        replies: [['Your application', 'Thank you for applying. We will not move forward this time, and we wish you the best.']],
+        ops: [{ tab: 1, add: ['hana@example.com', 'Your application'] }, { tab: 0, set: [2, 2, '31'] }, { tab: 0, set: [2, 3, 'declined'] }] }
+    ]
+  },
+  errors: {
+    phone: ['HR team inbox', 'Alerts and digests'],
+    intro: ['Trigger a case to see what the team receives.'],
+    sheetTitle: 'Google Sheet · Error Log',
+    tabs: [
+      { name: 'Error Log', cols: ['Workflow', 'Node', 'Message'], rows: [] },
+      { name: 'Alert emails', cols: ['Subject'], rows: [] }
+    ],
+    chips: [
+      { label: 'Break a workflow', user: 'Recruitment 2 fails on a run…', fail: true, end: 'failed',
+        log: [['Error Trigger', 'Recruitment 2 failed', true], ['Read Error', 'node: Update Row'], ['Append Error Log', 'row added'], ['Send Gmail', 'alert email']],
+        replies: [['Alert: Recruitment 2 failed', 'Node "Update Row": column not found. The failure was logged.']],
+        ops: [{ tab: 1, add: ['Alert: Recruitment 2 failed'] }, { tab: 0, add: ['Recruitment 2', 'Update Row', 'column not found'] }] },
+      { label: 'Daily digest', user: 'Morning schedule fires…',
+        log: [['Schedule Trigger', 'daily'], ['Read Error Log', 'last 24 hours'], ['Build Digest', 'errors summarised'], ['Send Gmail', 'digest']],
+        replies: [['Daily digest', 'A summary of the errors from the last 24 hours. Everything else ran normally.']],
+        ops: [{ tab: 1, add: ['Daily digest'] }] },
+      { label: 'Stalled queue', user: 'Queue check runs…', fail: true, end: 'alert sent',
+        log: [['Schedule Trigger', 'queue check'], ['Read Applications', 'status = new'], ['Count Stuck Rows', 'rows waiting too long', true], ['Send Gmail', 'alert']],
+        replies: [['Alert: applications are not moving', 'Some applications have been waiting too long. Check the screening workflow.']],
+        ops: [{ tab: 1, add: ['Alert: applications are not moving'] }] }
+    ]
+  },
+  ask: {
+    phone: ['HR assistant', 'Answers from policy documents'],
+    intro: ['Ask a question about company policy.'],
+    sheetTitle: 'Knowledge base · Policy documents',
+    tabs: [
+      { name: 'Sources', cols: ['Document', 'Type', 'Used'], rows: [['HR Policy Handbook', '.docx', '—'], ['IT and Security Policy', '.txt', '—']] }
+    ],
+    chips: [
+      { label: 'How do I request leave?', q: 'How do I request leave?', user: 'How do I request leave?',
+        log: [['Employee Question', 'message received'], ['AI Agent', 'searches the policies first'], ['Search HR Policies', 'chunks found · HR Policy Handbook'], ['Conversation Memory', 'last 10 messages'], ['AI Agent', 'answer with source']],
+        replies: [['Leave requests', 'Send your request to your line manager and HR in advance, and wait for approval before making plans. (Source: HR Policy Handbook)']],
+        ops: [{ tab: 0, set: [0, 2, 'last answer'] }, { tab: 0, set: [1, 2, '—'] }] },
+      { label: 'What are the password rules?', q: 'What are the password rules?', user: 'What are the password rules?',
+        log: [['Employee Question', 'message received'], ['AI Agent', 'searches the policies first'], ['Search HR Policies', 'chunks found · IT and Security Policy'], ['Conversation Memory', 'last 10 messages'], ['AI Agent', 'answer with source']],
+        replies: [['Passwords', 'Use a strong, unique password and never share it. Report a suspected compromise to IT straight away. (Source: IT and Security Policy)']],
+        ops: [{ tab: 0, set: [1, 2, 'last answer'] }, { tab: 0, set: [0, 2, '—'] }] },
+      { label: 'What is the CEO’s salary?', q: 'What is the CEO’s salary?', user: 'What is the CEO’s salary?', fail: true, end: 'no match',
+        log: [['Employee Question', 'message received'], ['AI Agent', 'searches the policies first'], ['Search HR Policies', 'no relevant chunks', true], ['AI Agent', 'suggests contacting HR or IT']],
+        replies: ['I could not find this in the policy documents. Please contact HR or IT.'] },
+      { label: 'Admin adds a document', sys: 'An admin uploads a policy file through a private form.',
+        log: [['Upload Policy Documents', 'file received'], ['Read Uploaded Files', 'text extracted'], ['Split Into Chunks', '800 characters, 150 overlap'], ['Gemini Embeddings', 'chunks embedded'], ['Add to Knowledge Base', 'memory key hr_policies']],
+        replies: [],
+        ops: [{ tab: 0, add: ['Travel Policy', '.pdf', '—'] }] }
+    ]
+  },
+  coach: {
+    phone: ['Coaching report', 'Sent to the candidate by email'],
+    intro: ['Choose a sample CV and job post to compare.'],
+    sheetTitle: 'What the AI compared',
+    tabs: [
+      { name: 'Skills match', cols: ['Skill', 'In CV', 'Job post'], rows: [] },
+      { name: 'Sent emails', cols: ['Subject'], rows: [] }
+    ],
+    chips: [
+      { label: 'Strong match', user: 'CV + job post · Data Analyst',
+        log: [['Form Trigger', 'CV and job post received'], ['Extract CV Text', 'PDF read'], ['AI Agent', 'comparing skills'], ['Build Report', 'match: strong'], ['Send Gmail', 'report emailed']],
+        replies: [['Your coaching report', 'Strong match. Your SQL and dashboard experience fit the role. Next step: add measurable results to each project.']],
+        ops: [{ tab: 1, add: ['Your coaching report'] }, { tab: 0, add: ['SQL', 'yes', 'required'] }, { tab: 0, add: ['Dashboards', 'yes', 'required'] }, { tab: 0, add: ['Python', 'yes', 'nice to have'] }] },
+      { label: 'Gaps found', user: 'CV + job post · Data Analyst',
+        log: [['Form Trigger', 'CV and job post received'], ['Extract CV Text', 'PDF read'], ['AI Agent', 'comparing skills'], ['Build Report', 'match: partial'], ['Send Gmail', 'report emailed']],
+        replies: [['Your coaching report', 'Partial match. Stakeholder reporting is required but missing from your CV. Add one example, and mention Python if you have used it.']],
+        ops: [{ tab: 1, add: ['Your coaching report'] }, { tab: 0, add: ['SQL', 'yes', 'required'] }, { tab: 0, add: ['Stakeholder reporting', 'missing', 'required'] }, { tab: 0, add: ['Python', 'missing', 'nice to have'] }] }
+    ]
+  },
+  requests: {
+    phone: ['Customer’s WhatsApp', 'Dawaa Pharmacy'],
+    intro: ['Pick an action below to send a sample message.'],
+    sheetTitle: 'Google Sheet · Catalog and Reservations',
+    staff: { title: 'Pharmacist · Telegram', tag: 'staff', empty: 'Requests that need a pharmacist appear here.' },
+    tabs: [
+      { name: 'Catalog', cols: ['SKU', 'Medicine', 'Stock', 'Controlled'], rows: [['D-101', 'Paracetamol 500 mg', '40', '—'], ['D-102', 'Amoxicillin 500 mg', '2', '—'], ['D-103', 'Alprazolam 0.5 mg', '12', 'controlled'], ['D-104', 'Vitamin C 1000 mg', '25', '—']] },
+      { name: 'Reservations', cols: ['Res ID', 'Medicine', 'Qty', 'Status'], rows: [] }
+    ],
+    chips: [
+      { label: 'Order a medicine in stock', user: 'Paracetamol 500 mg × 2',
+        log: [['WhatsApp Trigger', 'message received'], ['Normalize Message', 'text'], ['AI Read Request', '1 medicine read'], ['Read Catalog', 'stock checked'], ['Match Catalog', 'in stock · not controlled'], ['Route Request', 'auto'], ['Save Reservation Lines', 'status confirmed'], ['Update Stock', 'Catalog updated'], ['Confirm Reservation', 'WhatsApp']],
+        replies: [['Reservation confirmed', '✅ تم حجز طلبك رقم R-1001:\n• Paracetamol 500 mg × 2\nالإجمالي: 36 جنيه\nيمكنك استلامه من الصيدلية.\n(Reserved. Total 36 EGP. Pick it up from the pharmacy.)']],
+        ops: [{ tab: 0, dec: ['D-101', 2, 2] }, { tab: 1, add: ['R-1001', 'Paracetamol 500 mg', '2', 'confirmed'] }] },
+      { label: 'Send a prescription photo', user: '📷 Photo of a prescription',
+        log: [['WhatsApp Trigger', 'message received'], ['Normalize Message', 'photo'], ['Is Photo?', 'yes'], ['Get Photo URL', 'WhatsApp'], ['Download Photo', 'image saved'], ['Prepare Prescription Read', 'prompt built'], ['AI Read Request', '2 medicines read'], ['Match Catalog', 'in stock · not controlled'], ['Route Request', 'auto'], ['Save Reservation Lines', 'one row per medicine'], ['Update Stock', 'Catalog updated'], ['Confirm Reservation', 'WhatsApp']],
+        replies: [['Reservation confirmed', '✅ تم حجز طلبك رقم R-1004:\n• Vitamin C 1000 mg × 1\n• Paracetamol 500 mg × 1\nالإجمالي: 63 جنيه\nيمكنك استلامه من الصيدلية.\n(Reserved. Total 63 EGP. Pick it up from the pharmacy.)']],
+        ops: [{ tab: 0, dec: ['D-104', 2, 1] }, { tab: 0, dec: ['D-101', 2, 1] }, { tab: 1, add: ['R-1004', 'Vitamin C 1000 mg', '1', 'confirmed'] }, { tab: 1, add: ['R-1004', 'Paracetamol 500 mg', '1', 'confirmed'] }] },
+      { label: 'Order a controlled medicine', user: 'Alprazolam 0.5 mg × 1',
+        log: [['WhatsApp Trigger', 'message received'], ['Normalize Message', 'text'], ['AI Read Request', '1 medicine read'], ['Match Catalog', 'controlled medicine'], ['Route Request', 'pharmacist'], ['Save Reservation Lines', 'status pending'], ['Ask Pharmacist', 'Telegram'], ['Tell Customer: Pharmacist Checking', 'WhatsApp']],
+        replies: pharmWait('R-1002'),
+        staff: pharmCard('R-1002', '• Alprazolam 0.5 mg × 1  ⚠️ controlled', 'Alprazolam 0.5 mg', 1, 'D-103'),
+        ops: [{ tab: 1, add: ['R-1002', 'Alprazolam 0.5 mg', '1', 'pending'] }] },
+      { label: 'Order a low-stock medicine', user: 'Amoxicillin 500 mg × 3',
+        log: [['WhatsApp Trigger', 'message received'], ['Normalize Message', 'text'], ['AI Read Request', '1 medicine read'], ['Match Catalog', 'low stock', true], ['Route Request', 'pharmacist'], ['Save Reservation Lines', 'status pending'], ['Ask Pharmacist', 'Telegram'], ['Tell Customer: Pharmacist Checking', 'WhatsApp']],
+        replies: pharmWait('R-1003'),
+        staff: pharmCard('R-1003', '• Amoxicillin 500 mg × 3  ⚠️ low stock', 'Amoxicillin 500 mg', 3, 'D-102'),
+        ops: [{ tab: 1, add: ['R-1003', 'Amoxicillin 500 mg', '3', 'pending'] }] },
+      { label: 'Send an unclear message', user: 'Hello, are you open today?', fail: true, end: 'nothing found',
+        log: [['WhatsApp Trigger', 'message received'], ['Normalize Message', 'text'], ['AI Read Request', 'no medicine found'], ['Match Catalog', 'nothing found', true], ['Route Request', 'nothing_found'], ['Nothing Found Reply', 'WhatsApp']],
+        replies: ['لم نتمكن من التعرف على أي دواء في رسالتك 🙏\nمن فضلك أرسل اسم الدواء بوضوح أو صورة الروشتة.\n\nWe couldn’t identify any medicine. Please send the medicine name or a clear photo of the prescription.'] }
+    ]
+  },
+  stock: {
+    phone: ['Customer’s WhatsApp', 'Messages from the pharmacy'],
+    intro: ['These checks run on a timer. Run one now with the buttons below.'],
+    sheetTitle: 'Google Sheet · Catalog and Reservations',
+    staff: { title: 'Purchasing · Telegram and email', tag: 'team', empty: 'The daily low stock report appears here.' },
+    tabs: [
+      { name: 'Catalog', cols: ['SKU', 'Medicine', 'Stock', 'Reorder at'], rows: [['D-101', 'Paracetamol 500 mg', '38', '10'], ['D-102', 'Amoxicillin 500 mg', '2', '10'], ['D-104', 'Vitamin C 1000 mg', '25', '8']] },
+      { name: 'Reservations', cols: ['Res ID', 'Medicine', 'Qty', 'Status'], rows: [['R-1001', 'Paracetamol 500 mg', '2', 'confirmed']] },
+      { name: 'Purchasing emails', cols: ['Subject'], rows: [] }
+    ],
+    chips: [
+      { label: 'Expire an old hold', sys: '15 minutes pass. One hold is now past its time.',
+        log: [['Every 15 Minutes', 'schedule'], ['Read Reservations', 'open holds'], ['Read Catalog', 'stock'], ['Expired Lines', '1 hold past its time'], ['Mark Expired', 'status expired'], ['Tell Customer: Expired', 'WhatsApp'], ['Restock Totals', 'stock to return'], ['Return Stock', 'Catalog updated']],
+        replies: [['Reservation expired', '⌛ انتهت مدة حجز طلبك رقم R-1001\n• Paracetamol 500 mg × 2\nتم إلغاء الحجز. يمكنك إرسال طلب جديد في أي وقت.\n(Your hold expired and was cancelled. You can send a new request any time.)']],
+        ops: [{ tab: 0, setBy: ['D-101', 2, '40'] }, { tab: 1, setBy: ['R-1001', 3, 'expired'] }] },
+      { label: 'Nothing to expire', sys: '15 minutes pass. All holds are still valid.',
+        log: [['Every 15 Minutes', 'schedule'], ['Read Reservations', 'open holds'], ['Read Catalog', 'stock'], ['Expired Lines', 'nothing to expire']], replies: [] },
+      { label: 'Low stock report', sys: 'It is 22:00.',
+        log: [['Every Day 22:00', 'schedule'], ['Read Stock', 'Catalog'], ['Find Low Stock', '1 item at or below its reorder level'], ['Send a text message', 'Telegram'], ['Email Purchasing', 'Gmail']],
+        replies: [],
+        staff: { head: 'Dawaa Bot', text: '📉 Low stock — 1 item(s)\n\n• Amoxicillin 500 mg (D-102): 2 left, reorder at 10' },
+        ops: [{ tab: 2, add: ['Dawaa low stock — 1 item(s) to reorder'] }] }
+    ]
+  },
+  perrors: {
+    phone: ['Team Telegram', 'Alerts from the error handler'],
+    intro: ['Trigger an error to see how it is handled.'],
+    sheetTitle: 'Google Sheet · Errors',
+    tabs: [
+      { name: 'Errors', cols: ['Workflow', 'Node', 'Type', 'Critical'], rows: [] },
+      { name: 'Critical emails', cols: ['Subject'], rows: [] }
+    ],
+    chips: [
+      errChip('Rate limit hit', 'AI Read Request', 'Rate limit / Quota', 'quota exceeded', false),
+      errChip('Credentials expired', 'Read Catalog', 'Auth / Credentials', 'credentials are no longer valid', true),
+      errChip('Sheet problem', 'Save Reservation Lines', 'Google Sheets / Data', 'could not find the column', true)
+    ]
+  }
+};
+
+const CELL = { invited: 'ok', yes: 'ok', confirmed: 'ok', approved: 'ok', declined: 'bad', missing: 'bad', expired: 'bad', rejected: 'bad', critical: 'bad', borderline: 'mid', pending: 'mid', controlled: 'mid', new: 'dim', 'non-critical': 'dim', 'last answer': 'ok' };
+
+/* ---------- preview engine ---------- */
+function build(id) {
+  const sc = S[id], host = $('#demo-' + id);
+  const live = id === 'ask' && !!CONFIG.chat;
+  const tabs = JSON.parse(JSON.stringify(sc.tabs));
+  let active = 0, hl = null, busy = false;
+
+  // phone
+  const msgs = h('div', 'p-msgs'); msgs.setAttribute('aria-live', 'polite');
+  const chipRow = h('div', 'p-chips');
+  const input = h('input', 'p-in'); input.setAttribute('aria-label', 'Message');
+  input.placeholder = live ? 'Ask a policy question…' : 'Pick a sample action above';
+  input.disabled = !live;
+  const send = h('button', 'p-send', 'Send'); send.type = 'submit'; send.disabled = !live;
+  const bar = h('form', 'p-bar', null, [input, send]);
+  const phone = h('div', 'phone', null, [
+    h('div', 'p-head', null, [h('strong', null, sc.phone[0]), h('span', null, sc.phone[1])]),
+    msgs, chipRow, bar
+  ]);
+
+  // log
+  const pill = h('span', 'pill', 'idle');
+  const logList = h('ul', 'l-list');
+  const logEmpty = h('p', 'l-empty', 'Run an action on the phone to watch the workflow execute.');
+  const logPanel = h('div', 'panel', null, [
+    h('div', 'panel-head', null, [h('strong', null, 'n8n execution log'), pill]), logEmpty, logList
+  ]);
+  logList.hidden = true;
+
+  // staff (Telegram) panel
+  let staffList = null, staffEmpty = null, staffPanel = null;
+  if (sc.staff) {
+    staffList = h('div', 'cards');
+    staffEmpty = h('p', 'l-empty', sc.staff.empty);
+    staffPanel = h('div', 'panel', null, [
+      h('div', 'panel-head', null, [h('strong', null, sc.staff.title), h('span', 'pill', sc.staff.tag || 'staff')]),
+      staffEmpty, staffList
+    ]);
+    host.classList.add('has-staff');
+  }
+
+  // sheet
+  const tabRow = h('div', 's-tabs'); tabRow.setAttribute('role', 'tablist');
+  const wrap = h('div', 's-wrap');
+  const resetBtn = h('button', 'reset', 'Reset'); resetBtn.type = 'button';
+  const sheetPanel = h('div', 'panel sheet', null, [
+    h('div', 'panel-head', null, [h('strong', null, sc.sheetTitle), resetBtn]), tabRow, wrap
+  ]);
+
+  host.append(phone, logPanel);
+  if (staffPanel) host.append(staffPanel);
+  host.append(sheetPanel);
+
+  function bubble(kind, content) {
+    const b = h('div', 'bub ' + kind); b.dir = 'auto';
+    if (Array.isArray(content)) { b.append(h('b', null, content[0]), document.createTextNode(content[1])); }
+    else b.textContent = content;
+    msgs.append(b); msgs.scrollTop = msgs.scrollHeight; return b;
+  }
+  function sysNote(t) { msgs.append(h('div', 'sysn', t)); msgs.scrollTop = msgs.scrollHeight; }
+  function setPill(cls, text) { pill.className = 'pill ' + cls; pill.textContent = text; }
+  function logStep(node, detail, warn) {
+    logEmpty.hidden = true; logList.hidden = false;
+    logList.append(h('li', warn ? 'warn' : '', null, [h('em', null, node), h('span', null, '· ' + detail)]));
+    logList.scrollTop = logList.scrollHeight;
+  }
+  function setBusy(b) {
+    busy = b;
+    chipRow.querySelectorAll('button').forEach(x => x.disabled = b);
+    if (live) { input.disabled = b; send.disabled = b; }
+  }
+
+  function renderSheet() {
+    tabRow.replaceChildren(); wrap.replaceChildren();
+    tabs.forEach((t, i) => {
+      const b = h('button', 's-tab', t.name + ' (' + t.rows.length + ')');
+      b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(i === active));
+      b.onclick = () => { active = i; renderSheet(); };
+      tabRow.append(b);
+    });
+    const t = tabs[active];
+    if (!t.rows.length) { wrap.append(h('p', 's-empty', 'No rows yet.')); return; }
+    const table = h('table'), thead = h('thead'), tbody = h('tbody');
+    thead.append(h('tr', null, null, t.cols.map(c => h('th', null, c))));
+    t.rows.forEach((r, ri) => {
+      const tr = h('tr', hl && hl.tab === active && hl.rows.includes(ri) ? 'hl' : '');
+      r.forEach(v => tr.append(h('td', CELL[v] || '', v)));
+      tbody.append(tr);
+    });
+    table.append(thead, tbody); wrap.append(table);
+  }
+  function mark(tab, row) { hl = { tab, rows: [...(hl && hl.tab === tab ? hl.rows : []), row] }; }
+  function applyOps(ops) {
+    hl = null;
+    (ops || []).forEach(op => {
+      const t = tabs[op.tab];
+      if (op.add) {
+        let idx = t.rows.findIndex(r => r.join('|') === op.add.join('|'));
+        if (idx < 0) { t.rows.push(op.add.slice()); idx = t.rows.length - 1; }
+        mark(op.tab, idx);
+      } else if (op.set) {
+        const [r, c, v] = op.set; t.rows[r][c] = v; mark(op.tab, r);
+      } else if (op.setBy || op.dec) {
+        const [key, col, val] = op.setBy || op.dec;
+        const r = t.rows.findIndex(x => x[0] === key);
+        if (r >= 0) {
+          t.rows[r][col] = op.dec ? String(Math.max(0, Number(t.rows[r][col]) - val)) : val;
+          mark(op.tab, r);
+        }
+      }
+      active = op.tab;
+    });
+    renderSheet();
+  }
+
+  function addCard(spec) {
+    staffEmpty.hidden = true;
+    const card = h('div', 'card', null, [h('b', 'card-h', spec.head), h('p', 'card-t', spec.text)]);
+    const status = h('p', 'card-s');
+    if (spec.buttons) {
+      const btns = [], row = h('div', 'card-b');
+      spec.buttons.forEach(bt => {
+        const b = h('button', 'sbtn', bt.label); b.type = 'button';
+        b.onclick = async () => {
+          if (busy) return;
+          setBusy(true); btns.forEach(x => x.disabled = true);
+          await play(bt.follow, status); setBusy(false);
+        };
+        btns.push(b); row.append(b);
+      });
+      card.append(row);
+    }
+    card.append(status); staffList.append(card); staffList.scrollTop = staffList.scrollHeight;
+  }
+
+  async function play(chip, statusEl) {
+    if (chip.user) bubble('user', chip.user); else if (chip.sys) sysNote(chip.sys);
+    logList.replaceChildren(); setPill('running', 'running');
+    for (const [node, detail, warn] of chip.log) { await sleep(420); logStep(node, detail, warn); }
+    await sleep(300); setPill(chip.fail ? 'bad' : 'ok', chip.end || 'succeeded');
+    for (const r of chip.replies || []) { await sleep(350); bubble('bot', r); }
+    if (chip.staff) { await sleep(300); addCard(chip.staff); }
+    if (statusEl) statusEl.textContent = 'Status: ' + chip.status + ' · customer messaged';
+    applyOps(chip.ops);
+  }
+  async function runChip(chip) {
+    if (busy) return;
+    if (live && chip.q) return sendLive(chip.q);
+    setBusy(true); await play(chip); setBusy(false);
+  }
+
+  async function sendLive(q) {
+    if (busy || !q) return;
+    setBusy(true); bubble('user', q);
+    logList.replaceChildren(); setPill('running', 'running');
+    logStep('Employee Question', 'message received');
+    logStep('AI Agent', 'searching the policy documents…');
+    const t0 = performance.now();
+    try {
+      const r = await fetch(CONFIG.n8nBase + CONFIG.chat, { method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ action: 'sendMessage', sessionId, chatInput: q }) });
+      if (!r.ok) throw new Error('not ok');
+      const out = (await r.json()).output;
+      logStep('Reply', 'sent in ' + ((performance.now() - t0) / 1000).toFixed(1) + 's');
+      setPill('ok', 'succeeded'); bubble('bot', out); setState('online');
+    } catch (_) {
+      logStep('Reply', 'no answer', true); setPill('bad', 'failed');
+      bubble('bot', 'The HR assistant is offline right now. Please try again later.'); setState('offline');
+    }
+    setBusy(false);
+  }
+
+  bar.onsubmit = e => { e.preventDefault(); const q = input.value.trim(); input.value = ''; if (live) sendLive(q); };
+
+  function reset() {
+    tabs.splice(0, tabs.length, ...JSON.parse(JSON.stringify(sc.tabs)));
+    active = 0; hl = null; msgs.replaceChildren();
+    sc.intro.forEach(t => bubble('bot', t));
+    logList.replaceChildren(); logList.hidden = true; logEmpty.hidden = false; setPill('', 'idle');
+    if (staffList) { staffList.replaceChildren(); staffEmpty.hidden = false; }
+    renderSheet();
+  }
+  sc.chips.forEach(c => { const b = h('button', 'chip', c.label); b.type = 'button'; b.onclick = () => runChip(c); chipRow.append(b); });
+  resetBtn.onclick = () => { if (!busy) reset(); };
+  reset();
+}
+Object.keys(S).forEach(build);
+
+$('#ask-note').textContent = CONFIG.chat
+  ? 'The phone is connected to the real chat workflow. Your question runs through the live assistant.'
+  : 'Preview with sample data. The live assistant will replace this once its workflow is published.';
+</script>
+</body>
+</html>
