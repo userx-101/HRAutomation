@@ -1,0 +1,614 @@
+{
+  "name": "Recruitment 3 - Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e0727630-e45e-4c83-8c5a-fd166b585306",
+      "name": "On Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst exec = e.execution || {};\nconst trig = e.trigger || {};\nconst err = exec.error || trig.error || {};\nconst msg = String(err.message || 'Unknown error');\nconst text = (msg + ' ' + (err.description || '') + ' ' + (err.stack || '')).toLowerCase();\nconst node = exec.lastNodeExecuted || (err.node && err.node.name) || 'Unknown node';\nconst workflow = (e.workflow && e.workflow.name) || 'Unknown workflow';\n\nconst rules = [\n  [/unexpected token|json|parse|schema|output parser/, 'parsing', 'medium'],\n  [/401|403|unauthori[sz]ed|forbidden|invalid_grant|access token|refresh token|credential|authori[sz]/, 'auth', 'critical'],\n  [/429|402|rate limit|quota|too many requests|insufficient credits|billing/, 'quota-or-credits', 'critical'],\n  [/timeout|timed out|etimedout|econnreset|econnrefused|enotfound|socket|502|503|504/, 'network', 'high'],\n  [/pdf|ocr|extract|binary|mime|no data/, 'file-processing', 'medium'],\n  [/not found|404|does not exist|spreadsheet|range|sheet/, 'resource-missing', 'high'],\n];\nlet type = 'other', severity = 'medium';\nfor (const [re, t, sev] of rules) { if (re.test(text)) { type = t; severity = sev; break; } }\nif (!exec.id) { type = 'trigger-failure'; severity = 'critical'; }\n\nreturn [{ json: { time: new Date().toISOString(), workflow, node, type, severity,\n  message: msg.slice(0, 250), executionId: exec.id || '', executionUrl: exec.url || '' } }];"
+      },
+      "id": "b8d76d1d-acdc-4b0a-bcc3-6aa35013ae98",
+      "name": "Classify Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 654059631,
+          "mode": "list",
+          "cachedResultName": "Error Log"
+        },
+        "options": {}
+      },
+      "id": "b4102662-bc1f-4a11-928d-f65f45765d15",
+      "name": "Get Recent Alerts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Same workflow + node: only one email per window. Sheet columns: Time | Workflow | Node | Error | Status\nconst WINDOW_MIN = 60;\nconst cur = $('Classify Error').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r['Workflow']);\nconst now = Date.now();\nconst recent = rows.some(r =>\n  r['Workflow'] === cur.workflow && r['Node'] === cur.node &&\n  String(r['Status']).toLowerCase() === 'alerted' &&\n  (now - new Date(r['Time']).getTime()) < WINDOW_MIN * 60000);\nconst errorText = `[${cur.type}/${cur.severity}] ${cur.message}` + (cur.executionId ? ` (exec ${cur.executionId})` : '');\nreturn [{ json: { 'Time': cur.time, 'Workflow': cur.workflow, 'Node': cur.node,\n  'Error': errorText.slice(0, 300), 'Status': recent ? 'throttled' : 'alerted' } }];"
+      },
+      "id": "a2c0533a-3580-46dc-b6eb-579876e54fc3",
+      "name": "Check Throttle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 654059631,
+          "mode": "list",
+          "cachedResultName": "Error Log"
+        },
+        "options": {}
+      },
+      "id": "4bfcfa8d-2ef9-4a1e-a7ad-c29f484980d6",
+      "name": "Append row in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "n6-c",
+              "leftValue": "={{ $('Check Throttle').first().json.Status }}",
+              "rightValue": "alerted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6426d6b6-a8df-4fe6-afbd-6e260a8d80c4",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_SENDTO",
+        "subject": "=🚨 [{{ $('Classify Error').first().json.severity }}] {{ $('Classify Error').first().json.workflow }} failed at \"{{ $('Classify Error').first().json.node }}\"",
+        "message": "=<h3>Recruitment automation failure</h3><table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;font-family:Arial;font-size:13px\"><tr><td><b>Workflow</b></td><td>{{ $('Classify Error').first().json.workflow }}</td></tr><tr><td><b>Failed node</b></td><td>{{ $('Classify Error').first().json.node }}</td></tr><tr><td><b>Type</b></td><td>{{ $('Classify Error').first().json.type }}</td></tr><tr><td><b>Severity</b></td><td>{{ $('Classify Error').first().json.severity }}</td></tr><tr><td><b>Message</b></td><td>{{ $('Classify Error').first().json.message }}</td></tr><tr><td><b>Time</b></td><td>{{ $('Classify Error').first().json.time }}</td></tr></table><p><a href=\"{{ $('Classify Error').first().json.executionUrl }}\">Open the failed execution</a></p><p>Repeats of the same workflow and node are throttled for 60 minutes and logged in the Error Log tab.</p>",
+        "options": {}
+      },
+      "id": "ca4b8cb3-848b-40f4-ac07-92c427b7d5f8",
+      "name": "Alert Admin",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1344,
+        0
+      ],
+      "webhookId": "50193b2d-e1ff-49cd-a442-e4ba9232181c"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "196722a1-62d0-4171-966c-25df69faedec",
+      "name": "Every Morning 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 654059631,
+          "mode": "list",
+          "cachedResultName": "Error Log"
+        },
+        "options": {}
+      },
+      "id": "b221a78a-4199-4ba2-8234-bb00c77ddee7",
+      "name": "Get Error Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        304
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const HOURS = 24;\nconst esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst rows = $input.all().map(i => i.json).filter(r => r['Time']);\nconst since = Date.now() - HOURS * 3600 * 1000;\nconst recent = rows.filter(r => new Date(r['Time']).getTime() >= since);\nif (!recent.length) return [{ json: { hasData: false } }];\n\nconst groups = {};\nfor (const r of recent) {\n  const k = r['Workflow'] + '|' + r['Node'];\n  (groups[k] = groups[k] || { w: r['Workflow'], n: r['Node'], c: 0, last: r['Error'] }).c++;\n  groups[k].last = r['Error'];\n}\nconst list = Object.values(groups).sort((a, b) => b.c - a.c);\nconst critical = recent.filter(r => String(r['Error']).includes('/critical]')).length;\n\nconst html = `<h3>Recruitment automation: last ${HOURS}h</h3>\n<p><b>${recent.length}</b> events (${critical} critical) across ${list.length} distinct issues.</p>\n<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;font-family:Arial;font-size:13px\">\n<tr style=\"background:#eee\"><th>Count</th><th>Workflow</th><th>Node</th><th>Latest error</th></tr>\n${list.map(g => `<tr><td>${g.c}</td><td>${esc(g.w)}</td><td>${esc(g.n)}</td><td>${esc(g.last)}</td></tr>`).join('')}\n</table>`;\nreturn [{ json: { hasData: true, subject: `Daily digest: ${recent.length} automation event(s), ${critical} critical`, html } }];"
+      },
+      "id": "6567e311-7c09-4482-853f-3f7de9b148d8",
+      "name": "Build Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "n11-c",
+              "leftValue": "={{ $json.hasData }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "309703bc-2cf7-49bd-b863-99b4f326e0d0",
+      "name": "Anything to Report?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_SENDTO",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "97dd7cbe-8246-40f1-af25-59be15359a2e",
+      "name": "Send Daily Digest",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        912,
+        304
+      ],
+      "webhookId": "0a9a8e1e-96fa-4fb6-b89d-453b1c625828"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "80a0c581-64f0-4389-bb21-6defc0c87338",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 17508537,
+          "mode": "list",
+          "cachedResultName": "Applications"
+        },
+        "options": {}
+      },
+      "id": "9cd94afd-e475-4711-a114-758d87008078",
+      "name": "Get Waiting Applications",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        608
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- CONFIG: matches the Applications tab headers ----\nconst CONFIG = {\n  TIME_COLUMN: 'Applied At',\n  STATUS_COLUMN: 'Status',\n  SCORE_COLUMN: 'Score',\n  NAME_COLUMN: 'Name',\n  PENDING_STATUSES: ['', 'new', 'pending', 'waiting', 'received', 'submitted', 'applied'],\n  STUCK_AFTER_HOURS: 3   // Recruitment 2 runs hourly\n};\n// ------------------------------------------------------\nconst esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst rows = $input.all().map(i => i.json).filter(r => r && Object.keys(r).length);\nif (!rows.length) return [{ json: { hasStuck: false, stuckCount: 0, oldestHours: 0 } }];\n\nconst missing = [CONFIG.STATUS_COLUMN, CONFIG.TIME_COLUMN, CONFIG.SCORE_COLUMN].filter(c => !(c in rows[0]));\nif (missing.length) {\n  return [{ json: { hasStuck: true, stuckCount: 0, oldestHours: 0,\n    subject: 'Heartbeat config mismatch: column not found',\n    html: `<p>Column(s) <b>${esc(missing.join(', '))}</b> not found in the Applications tab.</p><p>Columns found: ${esc(Object.keys(rows[0]).join(', '))}</p>` } }];\n}\n\nconst now = Date.now();\nconst stuck = []; let unparsed = 0;\nfor (const r of rows) {\n  const status = String(r[CONFIG.STATUS_COLUMN] ?? '').trim().toLowerCase();\n  const scored = String(r[CONFIG.SCORE_COLUMN] ?? '').trim() !== '';\n  if (scored || !CONFIG.PENDING_STATUSES.includes(status)) continue;   // already processed by Recruitment 2\n  const t = new Date(r[CONFIG.TIME_COLUMN]).getTime();\n  if (isNaN(t)) { unparsed++; continue; }\n  const ageH = (now - t) / 3600000;\n  if (ageH >= CONFIG.STUCK_AFTER_HOURS) stuck.push({ name: r[CONFIG.NAME_COLUMN] || '(no name)', ageH: Math.round(ageH * 10) / 10 });\n}\nstuck.sort((a, b) => b.ageH - a.ageH);\nconst html = `<h3>Applications stuck in the pipeline</h3>\n<p>${stuck.length} application(s) waiting more than ${CONFIG.STUCK_AFTER_HOURS}h without being scored by Recruitment 2.</p>\n<ul>${stuck.slice(0, 20).map(s => `<li>${esc(s.name)}: ${s.ageH}h</li>`).join('')}</ul>\n${unparsed ? `<p>Note: ${unparsed} pending row(s) have an unreadable \"${esc(CONFIG.TIME_COLUMN)}\" date.</p>` : ''}\n<p>Check that \"Recruitment 2\" is published and its Every Hour trigger is running.</p>`;\nreturn [{ json: {\n  hasStuck: stuck.length > 0 || unparsed > 0,\n  stuckCount: stuck.length,\n  oldestHours: stuck.length ? stuck[0].ageH : 0,\n  subject: stuck.length ? `${stuck.length} application(s) stuck for ${CONFIG.STUCK_AFTER_HOURS}h+` : `${unparsed} pending application(s) with unreadable dates`,\n  html\n} }];"
+      },
+      "id": "0cd9ef6b-9775-4775-af6e-34b2a4b3806d",
+      "name": "Find Stuck Applications",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "n16-c",
+              "leftValue": "={{ $json.hasStuck }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d18f172e-7c0c-43eb-a25f-fb1171383375",
+      "name": "Stuck Applications?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_SENDTO",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "9ce28eb7-1fd9-4ce9-a0b8-6d888ad2684c",
+      "name": "Heartbeat Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        912,
+        608
+      ],
+      "webhookId": "7f51ab92-e429-4deb-8e01-2a5b4fc5f0d5"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 654059631,
+          "mode": "list",
+          "cachedResultName": "Error Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Time": "={{ new Date().toISOString() }}",
+            "Workflow": "Recruitment 2 (heartbeat)",
+            "Node": "Get New Applications",
+            "Error": "=[stuck-applications/high] {{ $('Find Stuck Applications').first().json.stuckCount }} stuck, oldest {{ $('Find Stuck Applications').first().json.oldestHours }}h",
+            "Status": "alerted"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Workflow",
+              "displayName": "Workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Node",
+              "displayName": "Node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Error",
+              "displayName": "Error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c44bda13-e28c-4083-93b3-16e9124de54c",
+      "name": "Log Heartbeat",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1152,
+        608
+      ]
+    }
+  ],
+  "connections": {
+    "On Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Classify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Error": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Alerts": {
+      "main": [
+        [
+          {
+            "node": "Check Throttle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Throttle": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Alert Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Morning 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Get Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Error Log": {
+      "main": [
+        [
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest": {
+      "main": [
+        [
+          {
+            "node": "Anything to Report?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to Report?": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 2 Hours": {
+      "main": [
+        [
+          {
+            "node": "Get Waiting Applications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Waiting Applications": {
+      "main": [
+        [
+          {
+            "node": "Find Stuck Applications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Stuck Applications": {
+      "main": [
+        [
+          {
+            "node": "Stuck Applications?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stuck Applications?": {
+      "main": [
+        [
+          {
+            "node": "Heartbeat Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Heartbeat Alert": {
+      "main": [
+        [
+          {
+            "node": "Log Heartbeat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": []
+}

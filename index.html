@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OMNA People · HR automation by AbdAllah Hamdy</title>
+<meta name="description" content="Five n8n workflows that take a CV from application to decision, answer policy questions and report their own failures. Live, not a demo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --paper:#F4F6F5;--card:#fff;--ink:#12202B;--muted:#55646E;--line:#D5DCDA;
+  --teal:#0B7A75;--teal-d:#085E5A;--mint:#DDEFEA;--coral:#C93E22;--coral-bg:#FBE6E1;
+  --font-d:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --font-b:'IBM Plex Sans','Segoe UI',system-ui,sans-serif
+}
+html{scroll-behavior:smooth;color-scheme:light}
+body{font-family:var(--font-b);background:var(--paper);color:var(--ink);line-height:1.65;font-size:16px;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-d)}
+:focus-visible{outline:3px solid var(--teal);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* header */
+header{position:sticky;top:0;z-index:50;background:rgba(244,246,245,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:24px;height:56px}
+.logo{font-family:var(--font-d);font-weight:700;font-size:1.05rem;color:var(--ink);text-decoration:none;white-space:nowrap}
+.menu{display:flex;gap:22px;list-style:none;overflow-x:auto;scrollbar-width:none}
+.menu::-webkit-scrollbar{display:none}
+.menu a{font-size:.9rem;font-weight:500;color:var(--muted);text-decoration:none;white-space:nowrap;padding:4px 0;border-bottom:2px solid transparent}
+.menu a:hover{color:var(--ink);border-color:var(--teal)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1fr 1.05fr;gap:56px;align-items:center;padding:72px 0 64px}
+h1{font-family:var(--font-d);font-weight:700;font-size:clamp(2.3rem,5vw,3.7rem);line-height:1.04;letter-spacing:-.025em;margin-bottom:20px}
+.lead{font-size:1.1rem;color:var(--muted);max-width:30em;margin-bottom:28px}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}
+.btn{display:inline-flex;align-items:center;padding:11px 22px;border-radius:8px;font:600 .95rem var(--font-b);text-decoration:none;border:1.5px solid var(--ink);transition:background .15s,color .15s,border-color .15s}
+.btn-solid{background:var(--ink);color:#fff}
+.btn-solid:hover{background:var(--teal-d);border-color:var(--teal-d)}
+.btn-line{background:transparent;color:var(--ink)}
+.btn-line:hover{background:var(--mint);border-color:var(--teal-d)}
+.btn.disabled{pointer-events:none;opacity:.45}
+.status{display:inline-flex;align-items:center;gap:9px;padding:6px 14px;border-radius:999px;font-size:.85rem;font-weight:500;background:#fff;border:1px solid var(--line);color:var(--muted)}
+.status i{width:9px;height:9px;border-radius:50%;background:#9AA7A3;flex-shrink:0}
+html[data-state=online] .status{color:var(--teal-d);border-color:#9fd3cb;background:var(--mint)}
+html[data-state=online] .status i{background:var(--teal);box-shadow:0 0 0 3px rgba(11,122,117,.2)}
+html[data-state=offline] .status{color:var(--coral);border-color:#efb9ad;background:var(--coral-bg)}
+html[data-state=offline] .status i{background:var(--coral)}
+
+/* diagram */
+.map{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 20px 14px}
+.map svg{display:block;width:100%;height:auto;overflow:visible}
+.map figcaption{font-size:.82rem;color:var(--muted);margin-top:10px}
+.node rect{fill:#fff;stroke:var(--ink);stroke-width:1.5;transition:fill .15s}
+.node a{cursor:pointer;text-decoration:none}
+.node a:hover rect{fill:var(--mint)}
+.node a:focus-visible{outline:none}
+.node a:focus-visible rect{stroke:var(--teal);stroke-width:3.5}
+.node .t{font:700 14.5px var(--font-d);fill:var(--ink)}
+.node .s{font:400 11.5px var(--font-b);fill:var(--muted)}
+.node.err rect{stroke:var(--coral)}
+.pd{fill:#9AA7A3}
+html[data-state=online] .pd{fill:var(--teal)}
+html[data-state=offline] .pd{fill:var(--coral)}
+.link{fill:none;stroke:var(--ink);stroke-width:1.5}
+.link.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .9s .2s ease-out forwards}
+.link.warn{stroke:var(--coral);stroke-dasharray:4 4}
+.cap{font:400 11px var(--font-b);fill:var(--muted)}
+.cap.warn{fill:var(--coral)}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* stages */
+.stage{display:grid;grid-template-columns:240px 1fr;gap:48px;padding:56px 0;border-top:1px solid var(--line);scroll-margin-top:56px}
+.trigger{display:inline-block;font-size:.8rem;font-weight:500;color:var(--teal-d);background:var(--mint);border-radius:999px;padding:3px 12px;margin-bottom:14px}
+.trigger.warn{color:var(--coral);background:var(--coral-bg)}
+h2{font-family:var(--font-d);font-weight:700;font-size:1.7rem;line-height:1.15;letter-spacing:-.015em;margin-bottom:6px}
+.wf{font-size:.88rem;color:var(--muted)}
+.body>p{max-width:38em;margin-bottom:24px}
+.steps{list-style:none;position:relative;display:flex;flex-direction:column;gap:22px;max-width:40em}
+.steps::before{content:"";position:absolute;left:13px;top:14px;bottom:14px;width:1.5px;background:var(--line)}
+.steps li{position:relative;display:flex;gap:16px}
+.steps b{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--card);border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font:600 .8rem var(--font-b);position:relative;z-index:1}
+.steps strong{display:block;font-weight:600;margin-bottom:2px}
+.steps span{color:var(--muted);font-size:.95rem;display:block}
+.body .btn{margin-top:26px}
+
+/* chat */
+.chat{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;max-width:40em}
+#msgs{height:360px;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:82%;padding:10px 14px;border-radius:12px;font-size:.95rem;white-space:pre-wrap;word-break:break-word}
+.msg.user{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:3px}
+.msg.bot{align-self:flex-start;background:var(--mint);border-bottom-left-radius:3px}
+.msg.error{align-self:flex-start;background:var(--coral-bg);color:var(--coral);border-bottom-left-radius:3px}
+.typing{align-self:flex-start;display:flex;gap:5px;padding:12px 14px}
+.typing span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+#chat-form{display:flex;border-top:1px solid var(--line)}
+#chat-input{flex:1;border:0;padding:14px 18px;font:400 .95rem var(--font-b);resize:none;background:transparent;color:var(--ink)}
+#chat-input:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--teal)}
+#chat-send{border:0;background:var(--ink);color:#fff;padding:0 24px;font:600 .92rem var(--font-b);cursor:pointer;transition:background .15s}
+#chat-send:hover{background:var(--teal-d)}
+#chat-send:disabled{opacity:.5;cursor:not-allowed}
+.soon{max-width:40em;padding:26px 28px;border:1.5px dashed var(--line);border-radius:16px;background:rgba(255,255,255,.6)}
+.soon strong{display:block;font-family:var(--font-d);font-size:1.1rem;margin-bottom:4px}
+.soon span{color:var(--muted);font-size:.95rem}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:36px 0 44px;background:var(--card)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px 32px;font-size:.9rem;color:var(--muted)}
+.foot p{max-width:34em}
+.foot nav{display:flex;gap:22px}
+
+@media(max-width:860px){
+  .hero{grid-template-columns:1fr;gap:40px;padding:48px 0 44px}
+  .stage{grid-template-columns:1fr;gap:20px;padding:44px 0}
+  #msgs{height:300px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;scroll-behavior:auto!important;transition:none!important}
+  .link.draw{stroke-dashoffset:0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="#top">AbdAllah Hamdy</a>
+    <ul class="menu">
+      <li><a href="#apply">Apply</a></li>
+      <li><a href="#screening">Screening</a></li>
+      <li><a href="#errors">Error handler</a></li>
+      <li><a href="#ask-hr">Ask HR</a></li>
+      <li><a href="#coach">Coach</a></li>
+    </ul>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+
+  <section class="hero">
+    <div>
+      <h1>Hiring and HR support that runs itself</h1>
+      <p class="lead">Five n8n workflows take a CV from application to decision, answer policy questions, and report their own failures. Everything on this page runs on the real workflows, not a demo.</p>
+      <div class="actions">
+        <a class="btn btn-solid" data-form="apply" target="_blank" rel="noopener">Apply with your CV</a>
+        <a class="btn btn-line" data-form="coach" target="_blank" rel="noopener">Get a coaching report</a>
+      </div>
+      <p class="status" role="status"><i></i><span id="status-text">Checking status…</span></p>
+    </div>
+
+    <figure class="map">
+      <svg viewBox="0 0 480 332" role="img" aria-labelledby="map-title">
+        <title id="map-title">How the five workflows connect. Apply feeds AI screening, the error handler watches both, and Ask HR and the coach run on their own.</title>
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#12202B"/></marker>
+        </defs>
+
+        <path class="link draw" pathLength="1" d="M210 41H268" marker-end="url(#arr)"/>
+        <path class="link warn" d="M105 72V140"/>
+        <path class="link warn" d="M375 72V140"/>
+        <text class="cap warn" x="240" y="112" text-anchor="middle">reports failures</text>
+        <text class="cap" x="0" y="238">Also available on their own</text>
+
+        <g class="node"><a href="#apply"><rect x="0" y="10" width="210" height="62" rx="10"/><text class="t" x="16" y="38">Apply for a job</text><text class="s" x="16" y="56">Form · CV intake</text><circle class="pd" cx="190" cy="26" r="4.5"/></a></g>
+        <g class="node"><a href="#screening"><rect x="270" y="10" width="210" height="62" rx="10"/><text class="t" x="286" y="38">AI screening</text><text class="s" x="286" y="56">Every hour</text><circle class="pd" cx="460" cy="26" r="4.5"/></a></g>
+        <g class="node err"><a href="#errors"><rect x="0" y="140" width="480" height="62" rx="10"/><text class="t" x="16" y="168">Error handler</text><text class="s" x="16" y="186">Logs failures · sends alerts · daily digest</text><circle class="pd" cx="460" cy="156" r="4.5"/></a></g>
+        <g class="node"><a href="#ask-hr"><rect x="0" y="252" width="210" height="62" rx="10"/><text class="t" x="16" y="280">Ask HR</text><text class="s" x="16" y="298">Chat · policy answers</text><circle class="pd" cx="190" cy="268" r="4.5"/></a></g>
+        <g class="node"><a href="#coach"><rect x="270" y="252" width="210" height="62" rx="10"/><text class="t" x="286" y="280">Application coach</text><text class="s" x="286" y="298">Form · CV vs job post</text><circle class="pd" cx="460" cy="268" r="4.5"/></a></g>
+      </svg>
+      <figcaption>Select a node to jump to that workflow.</figcaption>
+    </figure>
+  </section>
+
+  <section class="stage" id="apply">
+    <div>
+      <span class="trigger">Form trigger</span>
+      <h2>Apply for a job</h2>
+      <p class="wf">Recruitment 1 · Intake</p>
+    </div>
+    <div class="body">
+      <p>Candidates apply with a PDF CV. The workflow checks the application before anything is stored, so bad files and repeat applications never reach the pipeline.</p>
+      <ol class="steps">
+        <li><b>1</b><div><strong>Validate</strong><span>Only PDF files are accepted. If something is wrong, the form shows what to fix.</span></div></li>
+        <li><b>2</b><div><strong>Check for duplicates</strong><span>Applying twice for the same position with the same email is rejected.</span></div></li>
+        <li><b>3</b><div><strong>Save and log</strong><span>The CV goes to Google Drive and a new row is added to the applications sheet.</span></div></li>
+      </ol>
+      <a class="btn btn-solid" data-form="apply" target="_blank" rel="noopener">Open the application form</a>
+    </div>
+  </section>
+
+  <section class="stage" id="screening">
+    <div>
+      <span class="trigger">Runs every hour</span>
+      <h2>AI screening</h2>
+      <p class="wf">Recruitment 2</p>
+    </div>
+    <div class="body">
+      <p>This workflow runs in the background, so there is nothing to click. Within an hour of applying, a candidate has a score and a reply.</p>
+      <ol class="steps">
+        <li><b>1</b><div><strong>Read new applications</strong><span>It picks up every application in the sheet that has not been screened yet.</span></div></li>
+        <li><b>2</b><div><strong>Score each CV</strong><span>An AI model reads the CV and gives it a score.</span></div></li>
+        <li><b>3</b><div><strong>Reply and record</strong><span>The candidate gets an invite, a borderline note or a decline, and the sheet row is updated with the score and status.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="stage" id="errors">
+    <div>
+      <span class="trigger warn">Runs on error and on schedule</span>
+      <h2>Error handler</h2>
+      <p class="wf">Recruitment 3</p>
+    </div>
+    <div class="body">
+      <p>The safety net for the other workflows. When a run fails, it is recorded and someone is told, so nothing fails silently.</p>
+      <ol class="steps">
+        <li><b>1</b><div><strong>Log the failure</strong><span>Each error is written as a row in the error log sheet.</span></div></li>
+        <li><b>2</b><div><strong>Send an alert</strong><span>An alert email goes out as soon as a run fails.</span></div></li>
+        <li><b>3</b><div><strong>Digest and queue check</strong><span>A daily digest summarises the errors, and a scheduled check confirms applications are still moving through the queue.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="stage" id="ask-hr">
+    <div>
+      <span class="trigger">Chat trigger</span>
+      <h2>Ask HR</h2>
+      <p class="wf">RAG + GPT</p>
+    </div>
+    <div class="body">
+      <p>Ask a question about company policy. The assistant answers only from the policy documents and names the source. If the policies don't cover it, it points you to HR.</p>
+      <div id="chat-area"></div>
+    </div>
+  </section>
+
+  <section class="stage" id="coach">
+    <div>
+      <span class="trigger">Form trigger</span>
+      <h2>Application coach</h2>
+      <p class="wf">Job Application Coach</p>
+    </div>
+    <div class="body">
+      <p>Submit your CV and the job post you are aiming for. The workflow compares them, finds the gaps, and emails you a coaching report with changes to make.</p>
+      <a class="btn btn-solid" data-form="coach" target="_blank" rel="noopener">Open the coaching form</a>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <p>Built with n8n, Docker and ngrok by AbdAllah Hamdy. The workflows run on my own computer, so the site shows Offline whenever it is switched off.</p>
+    <nav>
+      <a id="repo-link" target="_blank" rel="noopener">GitHub repository</a>
+      <a id="wf-link" target="_blank" rel="noopener">Workflow files</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+const CONFIG = {
+  n8nBase: "https://enclosure-dad-suitcase.ngrok-free.dev",
+  chat: "",
+  applyForm: "/form/1faf866d-1678-4478-9f6a-bd5421a23549",
+  coachForm: "/form/2c6dbeea-2bd5-42c5-8a0e-cc1a0c7e12bc",
+  repo: "https://github.com/AbdAllah-Hamdy/HRAutomation"
+};
+
+const HEADERS = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' };
+const sessionId = crypto.randomUUID();
+const $ = s => document.querySelector(s);
+
+function el(tag, attrs, children) {
+  const e = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'cls') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else e.setAttribute(k, v);
+  });
+  if (children) children.forEach(c => e.appendChild(c));
+  return e;
+}
+
+// Links
+document.querySelectorAll('[data-form]').forEach(a => {
+  a.href = CONFIG.n8nBase + (a.dataset.form === 'apply' ? CONFIG.applyForm : CONFIG.coachForm);
+});
+$('#repo-link').href = CONFIG.repo;
+$('#wf-link').href = CONFIG.repo + '/tree/main/workflows';
+
+// Status
+const statusText = $('#status-text');
+function setState(state) {
+  document.documentElement.dataset.state = state;
+  const online = state === 'online';
+  statusText.textContent = online ? 'Online' : 'Offline. Please try again later.';
+  document.querySelectorAll('[data-form]').forEach(a => {
+    a.classList.toggle('disabled', !online);
+    a.setAttribute('aria-disabled', String(!online));
+  });
+}
+
+(async function checkStatus() {
+  try {
+    if (CONFIG.chat) {
+      const r = await fetch(CONFIG.n8nBase + CONFIG.chat, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ action: 'loadPreviousSession', sessionId })
+      });
+      if (!r.ok) throw new Error('not ok');
+    } else {
+      await fetch(CONFIG.n8nBase + CONFIG.applyForm, { mode: 'no-cors', headers: { 'ngrok-skip-browser-warning': '1' } });
+    }
+    setState('online');
+  } catch (_) { setState('offline'); }
+})();
+
+// Chat
+const chatArea = $('#chat-area');
+if (!CONFIG.chat) {
+  chatArea.appendChild(el('div', { cls: 'soon' }, [
+    el('strong', { text: 'The HR assistant is not live yet' }),
+    el('span', { text: 'It will appear here once its workflow is published.' })
+  ]));
+} else {
+  const msgs = el('div', { id: 'msgs', 'aria-live': 'polite' });
+  const input = el('textarea', { id: 'chat-input', placeholder: 'Ask a policy question…', rows: '1', 'aria-label': 'Your question' });
+  const send = el('button', { id: 'chat-send', type: 'submit', text: 'Send' });
+  const form = el('form', { id: 'chat-form' }, [input, send]);
+  chatArea.appendChild(el('div', { cls: 'chat' }, [msgs, form]));
+
+  function add(text, type) {
+    const m = el('div', { cls: 'msg ' + type, text });
+    msgs.appendChild(m); msgs.scrollTop = msgs.scrollHeight; return m;
+  }
+  add('Ask a question about company policy.', 'bot');
+
+  form.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = ''; send.disabled = input.disabled = true;
+    add(q, 'user');
+    const typer = el('div', { cls: 'typing' }, [el('span'), el('span'), el('span')]);
+    msgs.appendChild(typer); msgs.scrollTop = msgs.scrollHeight;
+    try {
+      const r = await fetch(CONFIG.n8nBase + CONFIG.chat, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ action: 'sendMessage', sessionId, chatInput: q })
+      });
+      typer.remove();
+      if (!r.ok) throw new Error('not ok');
+      add((await r.json()).output, 'bot');
+      setState('online');
+    } catch (_) {
+      typer.remove();
+      add('The HR assistant is offline right now. Please try again later.', 'error');
+      setState('offline');
+    } finally {
+      send.disabled = input.disabled = false; input.focus();
+    }
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+}
+</script>
+</body>
+</html>
