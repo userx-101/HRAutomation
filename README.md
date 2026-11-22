@@ -1,7 +1,7 @@
 HR-Automation
 An HR automation system built with n8n. Candidates apply with a PDF CV, the system screens each application with AI, and every failure is logged and reported. Visitors can try the live workflows from a public website.
 
-Live site: https://abdallah-hamdy.github.io/HRAutomation/
+Live site: https://userx-101.github.io/HRAutomation/
 
 The workflows run on my own computer (Docker + n8n, exposed through ngrok). When my machine is off, the site shows Offline and the form buttons are disabled.
 
